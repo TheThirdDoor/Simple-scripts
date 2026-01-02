@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # script-installer: Installs script content to ~/.local/bin
 # Features:
 # 1. Replaces <command> with the installed filename.
@@ -11,7 +11,7 @@ mkdir -p "$INSTALL_DIR"
 CMD_NAME="$1"
 CMD_CONTENT="$2"
 
-if [[ -z "$CMD_NAME" ]] || [[ -z "$CMD_CONTENT" ]]; then
+if [ -z "$CMD_NAME" ] || [ -z "$CMD_CONTENT" ]; then
     echo "Usage: script-installer <command_name> <script_content>"
     exit 1
 fi
@@ -19,24 +19,25 @@ fi
 DEST_FILE="$INSTALL_DIR/$CMD_NAME"
 
 # Check for Collision
-if [[ -e "$DEST_FILE" ]]; then
+if [ -e "$DEST_FILE" ]; then
     echo "Warning: '$CMD_NAME' already exists in $INSTALL_DIR"
-    read -p "Overwrite? (y/N): " -r CONFIRM
-    echo
-    if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
-        echo "Aborted."
-        exit 0
-    fi
+    printf "Overwrite? (y/N): "
+    read CONFIRM
+    case "$CONFIRM" in
+        [Yy]*) ;; 
+        *) echo "Aborted."; exit 0 ;;
+    esac
 fi
 
 # -- Feature: Command Name Substitution --
-# Replace literal "<command>" with the actual command name
-CMD_CONTENT="${CMD_CONTENT//<command>/$CMD_NAME}"
+CMD_CONTENT=$(printf '%s\n' "$CMD_CONTENT" | sed "s/<command>/$CMD_NAME/g")
 
 # -- Feature: Shebang Handling --
-if [[ "$CMD_CONTENT" != \#!* ]]; then
-    CMD_CONTENT="#!/bin/sh"$'\n'"$CMD_CONTENT"
-fi
+case "$CMD_CONTENT" in
+    \#!*) ;; 
+    *) CMD_CONTENT="#!/bin/sh
+$CMD_CONTENT" ;;
+esac
 
 # Write and allow executing
 printf "%s\n" "$CMD_CONTENT" > "$DEST_FILE"
@@ -44,26 +45,18 @@ chmod +x "$DEST_FILE"
 echo "✅ Installed '$CMD_NAME' to $DEST_FILE"
 
 # -- Feature: Usage Extraction --
-# Scans for a comment block containing "Usage" (case-insensitive)
-# Skips the shebang line (#!/...)
 awk '
-/^#!/ { next }  # Ignore shebang lines
+/^#!/ { next }
 /^#/ {
-    # Add line to the current block buffer
     if (block == "") { block = $0 } else { block = block "\n" $0 }
-    
-    # Check if this line looks like a usage header
     if (tolower($0) ~ /^#[[:space:]]*usage/) { is_usage = 1 }
     next
 }
 {
-    # We hit a non-comment line. If the previous block was a usage block, print it.
     if (is_usage && block != "") { print block }
     block = ""
     is_usage = 0
 }
 END {
-    # Flush if the file ends with a usage block
     if (is_usage && block != "") { print block }
-}
-' "$DEST_FILE"
+}' "$DEST_FILE"
