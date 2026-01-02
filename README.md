@@ -1,26 +1,27 @@
 # Simple Scripts
 
-**Simple Scripts** is a collection of scripts that will expand over time, these are scripts that I use regularly and each solve a problem I have had.
+**Simple Scripts** is a growing collection of command-line utilities designed to streamline daily workflows. Born from personal necessity, these tools are lightweight, practical, and built to solve recurring headaches.
 
 Currently contains the following scripts:
-* [Script Installer](#-script-installer) - A script to install the other scripts
-* [Port Assassin](#-port-assassin) - For killing processes using given ports
+* [📦 **Script Installer**](#-script-installer) - Easily install shell scripts across different terminal environments.
+* [🔪 **Port Assassin**](#-port-assassin) - Instantly free up ports by killing the processes holding them.
 
 ## 📦 Script Installer
-The **Script Installer** is the heart of these scripts, it provides a simple and easy way to install scripts across terminals with explicit support for Bash, Zsh, and Fish, or defaulting to strict POSIX.
+The **Script Installer** is the engine that drives this repo. It takes a name and a block of code, and turns it into a command you can run anywhere, and it handles the cross-shell compatibility so you don't have to.
 
 ### Usage
 ```bash
-script-installer <command name> <script content>
+script-installer <command name> '<script_body>'
 ```
+_Note: The script body should be enclosed in quotes to handle multi-line input correctly._
 
 ### Features
-* Automatically prepends #!/bin/sh to script if no shebang is found.
-* Replaces <command> with the command name so users can set the command they want when installing and comments and usage instructions in the script are updated to match.
-* Prints out comment blocks with # Usage in them so usage commands and other info can be printed out when installing.
+* **Shebang Injection**: Automatically detects missing shebangs and prepends #!/bin/sh to ensure execution.
+* **Dynamic Command Naming**: You pick the command name. The installer automatically updates usage instructions inside the script (replacing <command>) to match the name you chose.
+* **Instant Docs**: It pulls # Usage comments right out of the code and prints them during install, so you know how to use your new tool immediately.
 
 ### Installation
-Run the following command in a Bash, Zsh, Fish, or POSIX terminal. This is long so the others can be short.
+Run the following command in your shell. This bootstrap command is longer than the others because it sets up the environment to make future installations simple.
 ```bash
 {
   # 1. Setup Directory
@@ -145,21 +146,21 @@ EOF
 ```
 
 ## 🔪 Port Assassin
-The **Port Assassin** is there for those times when a program doesn't give up it's ports when they should, or when you have 30 instances of a script running and you only want the one using a particular port to be stopped.
+The **Port Assassin** is the cure for "Address already in use" errors. Whether a program crashed without cleaning up, or you have dozens of script instances running and need to stop just one specific worker, this tool finds the process holding the port and kills it instantly.
 
 ### Usage
 ```bash
 killport 5550-5600 5603 5607
 ```
-Ports can be passed in individually or as ranges, any number can be passed in, and the processes using these ports will be killed.
+_Note: Accepts space-separated lists, comma-separated values, and ranges._
 
 Features
-* Accepts individual ports (e.g., 8080) or ranges (e.g., 3000-3005).
-* Identifies the specific PID tied to the port and terminates it.
-* Handles multiple arguments in a single command.
+* **Smart Targeting**: Pass in single ports, ranges, or a mix of both. It handles the formatting for you.
+* **Safety Checks**: Includes strict input sanitization to ensure only valid digits and ranges are passed to the kill command, preventing accidental system instability.
+* **Process Resolution**: Doesn't just kill by name (which stops everything); it kills by port, ensuring you only stop exactly what you intend to.
 
 ### Installation
-Run the following command after installing the script-installer, or download the script file from this repo.
+Run the following command after setting up the script-installer:
 ```bash
 script-installer killport '# Usage: <command> 5555 8080-8090
 # Kills processes on the specified ports.
