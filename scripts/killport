@@ -1,0 +1,21 @@
+#!/bin/sh
+# Usage: killport 5555 8080-8090
+# Kills processes on the specified ports.
+# Supports ranges (55-60) and lists (55, 56).
+
+# Check for missing arguments
+if [ "$#" -eq 0 ]; then
+echo "Usage: $(basename "$0") <ports>"
+echo "Example: $(basename "$0") 5555 8080-8090"
+exit 1
+fi
+# Normalize Input
+PORTS=$(echo "$@" | tr " " "," | tr -s "," | sed "s/^,//;s/,$//")
+# Validate Input
+if echo "$PORTS" | grep -qv "^[0-9,-]*$"; then
+echo "Error: Invalid characters detected."
+echo "Allowed: digits (0-9), hyphens (-), and commas (,)."
+echo "Example: $(basename "$0") 5555 8080-8090"
+exit 1
+fi
+lsof -t -i :"$PORTS" | xargs -r kill
