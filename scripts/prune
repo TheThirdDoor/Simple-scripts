@@ -1,0 +1,112 @@
+#!/bin/sh
+#Usage <command> [options] [directory]
+# Flags:
+#   -l, -n, -s        List empty folders only (no delete)
+#   -y, -f, --force   Delete without confirmation
+#   -h, --help        Show usage
+
+NO_DELETE=0      # If 1, do not delete anything
+AUTO_DELETE=0    # If 1, delete without confirmation
+TARGET=""        # Directory to scan
+for arg in "$@"; do
+    case "$arg" in
+        -l|-n|-s)
+            NO_DELETE=1
+            ;;
+        -y|-f|--force)
+            AUTO_DELETE=1
+            ;;
+        -h|--help)
+            echo "Usage $(basename "$0") <directory>"
+            echo "  -n, -s, -l       Skip deletion (list only)"
+            echo "  -y, -f, --force  Delete without confirming"
+            echo "  -h, --help       Show this help"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $arg"
+            exit 1
+            ;;
+        *)
+            if [ -z "$TARGET" ]; then
+                TARGET="$arg"
+            fi
+            ;;
+    esac
+done
+
+# --- Safety Checks ---
+if [ "$AUTO_DELETE" -eq 1 ] && [ "$NO_DELETE" -eq 1 ]; then
+    echo "Error: delete without confirmation and no delete cannot be used together."
+    "$0" --help
+    exit 1
+fi
+[ -z "$TARGET" ] && TARGET="$(pwd)"
+if [ ! -d "$TARGET" ]; then
+    echo "Error: Directory $TARGET does not exist."
+    exit 1
+fi
+
+# Create temp file to store confirmed empty dirs
+EMPTY_LIST=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
+cleanup() {
+    rm -f "$EMPTY_LIST"
+}
+trap cleanup EXIT
+
+echo "Scanning $TARGET for recursively empty directories..."
+echo "(This may take a moment on large trees)"
+
+# --- Main Logic ---
+find "$TARGET" -depth -type d | while IFS= read -r dir; do
+    [ "$dir" = "$TARGET" ] && continue
+    is_empty=1
+    if ! (
+        cd "$dir" || exit 1
+        for f in .* *; do
+            [ -e "$f" ] || [ -L "$f" ] || continue
+            case "$f" in
+                .|..) continue ;;
+            esac
+            [ -d "$f" ] || exit 1
+            child_path="$dir/$f"
+            grep -F -x -q "$child_path" "$EMPTY_LIST" || exit 1
+        done
+    ); then
+        is_empty=0
+    fi
+    [ "$is_empty" -eq 1 ] && echo "$dir" >> "$EMPTY_LIST"
+done
+
+if [ ! -s "$EMPTY_LIST" ]; then
+    echo "No empty directories found."
+    exit 0
+fi
+
+# Show results
+echo "The following directories are empty (or contain only empty directories):"
+echo "---------------------------------------------------------------------"
+cat "$EMPTY_LIST"
+echo "---------------------------------------------------------------------"
+# 1. List-only mode
+if [ "$NO_DELETE" -eq 1 ]; then
+    exit 0
+fi
+# 2. Force delete mode
+if [ "$AUTO_DELETE" -eq 1 ]; then
+    xargs rmdir < "$EMPTY_LIST" 2>/dev/null
+    echo "Deletion complete."
+    exit 0
+fi
+# 3. Interactive mode
+printf "Delete these folders? [y/N]: "
+read -r response
+case "$response" in
+    [yY]|[yY][eE][sS])
+        xargs rmdir < "$EMPTY_LIST" 2>/dev/null
+        echo "Directories deleted."
+        ;;
+    *)
+        echo "Aborted. No changes made."
+        ;;
+esac
